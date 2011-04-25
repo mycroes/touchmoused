@@ -1,4 +1,4 @@
-h1. touchmouse
+h1. touchmoused
 
 Touchmoused is an effort to implement the server side for Logitech's Touch Mouse
 App for Apple's IOS.
