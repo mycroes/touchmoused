@@ -7,6 +7,7 @@ use IO::Socket;
 use IO::Handle; # Needed for autoflush
 use Fcntl; # Needed for sysopen flags (?)
 use POSIX ":sys_wait_h";
+use Switch;
 
 use constant {
 	UI_DEV_CREATE => 0x5501,
@@ -50,7 +51,6 @@ my %keymap = (
 	ord('0') => 11,
 	ord('-') => 12,
 	ord('=') => 13,
-	'bkspc' => 14,
 
 	ord('q') => 16,
 	ord('w') => 17,
@@ -63,6 +63,10 @@ my %keymap = (
 	ord('o') => 24,
 	ord('p') => 25,
 
+	91 => 26, # [
+	93 => 27, # ]
+	10 => 28, # Enter
+
 	ord('a') => 30,
 	ord('s') => 31,
 	ord('d') => 32,
@@ -72,9 +76,31 @@ my %keymap = (
 	ord('j') => 36,
 	ord('k') => 37,
 	ord('l') => 38,
+	59 => 39, # ;
+	39 => 40, # '
+	92 => 43, # \
 	
 	ord('z') => 44,
+	ord('x') => 45,
+	ord('c') => 46,
+	ord('v') => 47,
+	ord('b') => 48,
+	ord('n') => 49,
 	ord('m') => 50,
+	44 => 51, # ,
+	46 => 52, # .
+	47 => 53, # /
+	
+	55 => 55, # * (Emulates keypad asterisk)
+
+	32 => 57, # Space
+);
+
+my %modmap = ( # Map for modifier keys
+	51 => 14, # Backspace
+	59 => 29, # Ctrl (emulates left ctrl)
+	58 => 56, # Alt (emulates left alt)
+	55 => 125, # Win (emulates left meta)
 );
 
 require "sys/ioctl.ph";
@@ -130,19 +156,33 @@ $ui->autoflush(1);
 # __kernel_suseconds_t tv_usec (int)
 
 my $strpk_uinput_dev = "a80SSSSiI256";
-my $strpk_input_event = "LLSSL";
+my $strpk_input_event = "LLSSI";
 
 my $ret;
 $ret = ioctl($ui, UI_SET_EVBIT, EV_KEY) || -1;
 print "UI_SET_EVBIT EV_KEY: $ret\n";
 
-$ret = ioctl($ui, UI_SET_EVBIT, EV_SYN) || -1;
-print "UI_SET_EVBIT EV_SYN: $ret\n";
-
 for my $key ( values %keymap ) {
 	$ret = ioctl($ui, UI_SET_KEYBIT, $key) || -1;
 	print "UI_SET_KEYBIT $key: $ret\n";
 }
+
+for my $key ( values %modmap ) {
+	$ret = ioctl($ui, UI_SET_KEYBIT, $key) || -1;
+	print "UI_SET_KEYBIT $key: $ret;\n";
+}
+
+$ret = ioctl($ui, UI_SET_EVBIT, EV_REL) || -1;
+print "UI_SET_EVBIT EV_REL: $ret\n";
+
+$ret = ioctl($ui, UI_SET_RELBIT, REL_X) || -1;
+print "UI_SET_RELBIT REL_X: $ret\n";
+
+$ret = ioctl($ui, UI_SET_RELBIT, REL_Y) || -1;
+print "UI_SET_RELBIT REL_Y: $ret\n";
+
+$ret = ioctl($ui, UI_SET_EVBIT, EV_SYN) || -1;
+print "UI_SET_EVBIT EV_SYN: $ret\n";
 
 my @abs;
 foreach (1..256) {
@@ -183,24 +223,63 @@ while (1) {
 			my $message;
 			
 			while ($sock->recv($message, 1024)) {
-				printf "UDP Received: %s\n", unpack("H*", $message);
+				#printf "UDP Received: %s\n", unpack("H*", $message);
 				
 				my($type, $value, $other) = unpack("NNN", $message);
+				printf "$type $value $other\n";
 				
-				if ($type==13) {
-					print "Key pressed\n";
-					# A = 30
+				switch ($type) {
+					# Modifier key up
+					case 1 {
+						print "Modifier up\n";
+						print $ui pack($strpk_input_event, 0, 0, EV_KEY, $modmap{$value}, 0);
+					}
 
-					if ($keymap{$value}) {
-						print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 1);
-						print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 0);
-						print $ui pack($strpk_input_event, 0, 0, EV_SYN, 0, 0);
+					# Modifier key down
+					case 2 {
+						print "Modifier down\n";
+						print $ui pack($strpk_input_event, 0, 0, EV_KEY, $modmap{$value}, 1);
+					}
+
+					# Touch up
+					case 4 {}
+
+					# Touch down
+					case 5 {}
+
+					# Mouse horizontal
+					case 6 {
+						if (0 != $value) {
+							print "Mouse X\n";
+							$ret = print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_X, $value);
+						}
+					}
+
+					# Mouse vertical
+					case 7 {
+						if (0 != $value) {
+							print "Mouse Y\n";
+							print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_Y, $value);
+						}
+					}
+
+					case 13 {
+						print "Keypress\n";
+						if ($keymap{$value}) {
+							print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 1);
+							print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 0);
+						}
+					}
+
+					else {
+						print "Undefined case\n";
+						#my($pre, $ord, $post) = unpack("H12H4H*", $message);
+						#printf "Pre: $pre Ord: $ord Char: %s Post: $post\n", pack("H*", $ord);
 					}
 				}
 
-				#printf "$type $value $other\n";
-				#my($pre, $ord, $post) = unpack("H12H4H*", $message);
-				#printf "Pre: $pre Ord: $ord Char: %s Post: $post\n", pack("H*", $ord);
+				# Send sync event
+				print $ui pack($strpk_input_event, 0, 0, EV_SYN, 0, 0);
 			}
 		} else {
 			if (eof($fh)) {
