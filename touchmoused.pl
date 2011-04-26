@@ -1,13 +1,12 @@
 #!/usr/bin/perl
 
-my $name = `hostname`;
-
 use IO::Select;
 use IO::Socket;
 use IO::Handle; # Needed for autoflush
 use Fcntl; # Needed for sysopen flags (?)
-use POSIX ":sys_wait_h";
 use Switch;
+use POSIX ":sys_wait_h";
+require "sys/ioctl.ph";
 
 use constant {
 	UI_DEV_CREATE => 0x5501,
@@ -103,7 +102,33 @@ my %modmap = ( # Map for modifier keys
 	55 => 125, # Win (emulates left meta)
 );
 
-require "sys/ioctl.ph";
+my $name = `hostname`;
+my %conns;
+my $ui; # /dev/uinput handle
+
+my $strpk_uinput_dev = "a80SSSSiI256";
+my $strpk_input_event = "LLSSI";
+
+sub send_key {
+	my $ord = shift;
+
+	if ($ord >= ord("A") && $ord <= ord("Z")) {
+		$ord = $ord + (ord("a") - ord("A"));
+	}
+
+	if ($keymap{$ord}) {
+		print "Send ev\n";
+		print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$ord}, 1);
+		print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$ord}, 0);
+	}
+
+}
+
+sub send_mod {
+	my $key = shift;
+	my $state = shift; # Up or down
+
+}
 
 chomp $name;
 
@@ -124,9 +149,6 @@ sub REAP {
 };
 $SIG{CHLD} = \&REAP;
 
-my %conns;
-
-my $ui;
 sysopen($ui, '/dev/uinput', O_NONBLOCK|O_WRONLY) || die "Can't open /dev/uinput: $!"; 
 $ui->autoflush(1);
 
@@ -155,8 +177,6 @@ $ui->autoflush(1);
 # __kernel_time_t tv_sec (int)
 # __kernel_suseconds_t tv_usec (int)
 
-my $strpk_uinput_dev = "a80SSSSiI256";
-my $strpk_input_event = "LLSSI";
 
 my $ret;
 $ret = ioctl($ui, UI_SET_EVBIT, EV_KEY) || -1;
@@ -265,10 +285,12 @@ while (1) {
 
 					case 13 {
 						print "Keypress\n";
-						if ($keymap{$value}) {
-							print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 1);
-							print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 0);
-						}
+						send_key($value);
+
+						#if ($keymap{$value}) {
+						#	print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 1);
+						#	print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 0);
+						#}
 					}
 
 					else {
