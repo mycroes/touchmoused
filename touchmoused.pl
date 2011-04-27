@@ -262,13 +262,13 @@ while (1) {
 					# Modifier key up
 					case 1 {
 						print "Modifier up\n";
-						print $ui pack($strpk_input_event, 0, 0, EV_KEY, $modmap{$value}, 0);
+						send_mod($value, 0);
 					}
 
 					# Modifier key down
 					case 2 {
 						print "Modifier down\n";
-						print $ui pack($strpk_input_event, 0, 0, EV_KEY, $modmap{$value}, 1);
+						send_mod($value, 1);
 					}
 
 					# Touch up
