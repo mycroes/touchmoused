@@ -28,7 +28,7 @@ use constant {
 	ABS_X => 0x00,
 	ABS_Y => 0x01,
 
-	BUS_USB => 0x03,
+	BUS_VIRTUAL => 0x06,
 
 	BTN_MOUSE => 0x110,
 	BTN_TOUCH => 0x14a,
@@ -100,6 +100,7 @@ my %modmap = ( # Map for modifier keys
 	59 => 29, # Ctrl (emulates left ctrl)
 	58 => 56, # Alt (emulates left alt)
 	55 => 125, # Win (emulates left meta)
+	"shift" => 42, # Shift key, never send
 );
 
 my $name = `hostname`;
@@ -109,25 +110,34 @@ my $ui; # /dev/uinput handle
 my $strpk_uinput_dev = "a80SSSSiI256";
 my $strpk_input_event = "LLSSI";
 
+sub send_ev {
+	print $ui pack($strpk_input_event, 0, 0, shift, shift, shift);
+}
+
 sub send_key {
 	my $ord = shift;
+	my $uc = 0;
 
 	if ($ord >= ord("A") && $ord <= ord("Z")) {
+		$uc = true;
 		$ord = $ord + (ord("a") - ord("A"));
 	}
 
 	if ($keymap{$ord}) {
-		print "Send ev\n";
-		print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$ord}, 1);
-		print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$ord}, 0);
+		$uc && send_mod('shift', 1);
+		send_ev(EV_KEY, $keymap{$ord}, 1);
+		send_ev(EV_KEY, $keymap{$ord}, 0);
+		$uc && send_mod('shift', 0);
 	}
 
 }
 
 sub send_mod {
-	my $key = shift;
-	my $state = shift; # Up or down
+	my $code = shift;
 
+	if ($modmap{$code}) {
+		send_ev(EV_KEY, $modmap{$code}, shift);
+	}
 }
 
 chomp $name;
@@ -210,7 +220,7 @@ foreach (1..256) {
 	push(@abs, 0x00);
 }
 
-print $ui pack($strpk_uinput_dev, "TouchMouse", BUS_USB, 0x1234, 0xfedc, 1, 0, @abs);
+print $ui pack($strpk_uinput_dev, "TouchMouse", BUS_VIRTUAL, 0x1234, 0xfedc, 1, 0, @abs);
 
 $ret = ioctl($ui, UI_DEV_CREATE, 0) || -1;
 print "UI_DEV_CREATE: $ret \n";
