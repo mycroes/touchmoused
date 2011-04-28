@@ -4,13 +4,15 @@ Touchmoused is an effort to implement the server side for Logitech's Touch Mouse
 App for Apple's IOS.
 
 h2. Implemented features
-* Alphanumeric key support (1..9, a..z)
+* Mouse buttons
+* Mouse movement
+* Two-finger scroll
+* Alphanumeric key support (1..9, a..z, A..Z)
 * Modifier key support (Ctrl, Alt)
 * Some other keys
 
 h2. Missing features
 * More keys
-* Mouse support
 * Proper threading
 * Proper connection handling
 * Settings
