@@ -151,7 +151,7 @@ sub send_mouse_button {
 	print "Mouse: $btn\n";
 
 	if ($mousemap{$btn}) {
-		send_ev(EV_KEY, $mousemap{$code}, shift);
+		send_ev(EV_KEY, $mousemap{$btn}, shift);
 	}
 }
 
