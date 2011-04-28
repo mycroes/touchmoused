@@ -103,6 +103,12 @@ my %modmap = ( # Map for modifier keys
 	"shift" => 42, # Shift key, never send
 );
 
+my %mousemap = ( # Map for mouse buttons
+	256 => 0x110, # BTN_LEFT
+	257 => 0x111, # BTN_RIGHT
+	258 => 0x112, # BTN_MIDDLE
+);
+
 my $name = `hostname`;
 my %conns;
 my $ui; # /dev/uinput handle
@@ -140,6 +146,15 @@ sub send_mod {
 	}
 }
 
+sub send_mouse_button {
+	my $btn = shift;
+	print "Mouse: $btn\n";
+
+	if ($mousemap{$btn}) {
+		send_ev(EV_KEY, $mousemap{$code}, shift);
+	}
+}
+
 chomp $name;
 
 my $avahi_publish = fork();
@@ -162,27 +177,6 @@ $SIG{CHLD} = \&REAP;
 sysopen($ui, '/dev/uinput', O_NONBLOCK|O_WRONLY) || die "Can't open /dev/uinput: $!"; 
 $ui->autoflush(1);
 
-# uinput_user_dev:
-# char name[80]
-# struct input_id
-# int ff_effects_max;
-# int absmax[ABS_MAX + 1]
-# int absmin[ABS_MAX + 1]
-# int absfuzz[ABS_MAX + 1]
-# int absflat[ABS_MAX + 1]
-
-# input_id:
-# _u16 bustype
-# _u16 vendor
-# _u16 product
-# _u16 version
-
-# input_event
-# struct timeval time;
-# _u16 type
-# _u16 code
-# _s32 value
-
 # timeval
 # __kernel_time_t tv_sec (int)
 # __kernel_suseconds_t tv_usec (int)
@@ -199,7 +193,12 @@ for my $key ( values %keymap ) {
 
 for my $key ( values %modmap ) {
 	$ret = ioctl($ui, UI_SET_KEYBIT, $key) || -1;
-	print "UI_SET_KEYBIT $key: $ret;\n";
+	print "UI_SET_KEYBIT $key: $ret\n";
+}
+
+for my $btn ( values %mousemap ) {
+	$ret = ioctl($ui, UI_SET_KEYBIT, $btn) || -1;
+	print "UI_SET_KEYBIT $btn: $ret\n";
 }
 
 $ret = ioctl($ui, UI_SET_EVBIT, EV_REL) || -1;
@@ -256,7 +255,7 @@ while (1) {
 				#printf "UDP Received: %s\n", unpack("H*", $message);
 				
 				my($type, $value, $other) = unpack("NNN", $message);
-				printf "$type $value $other\n";
+				#printf "$type $value $other\n";
 				
 				switch ($type) {
 					# Modifier key up
@@ -272,23 +271,25 @@ while (1) {
 					}
 
 					# Touch up
-					case 4 {}
+					case 4 {
+						send_mouse_button($value, 0);
+					}
 
 					# Touch down
-					case 5 {}
+					case 5 {
+						send_mouse_button($value, 1);
+					}
 
 					# Mouse horizontal
 					case 6 {
 						if (0 != $value) {
-							print "Mouse X\n";
-							$ret = print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_X, $value);
+							print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_X, $value);
 						}
 					}
 
 					# Mouse vertical
 					case 7 {
 						if (0 != $value) {
-							print "Mouse Y\n";
 							print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_Y, $value);
 						}
 					}
@@ -296,11 +297,6 @@ while (1) {
 					case 13 {
 						print "Keypress\n";
 						send_key($value);
-
-						#if ($keymap{$value}) {
-						#	print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 1);
-						#	print $ui pack($strpk_input_event, 0, 0, EV_KEY, $keymap{$value}, 0);
-						#}
 					}
 
 					else {
