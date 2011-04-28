@@ -25,6 +25,10 @@ use constant {
 	REL_X => 0x00,
 	REL_Y => 0x01,
 
+	REL_HWHEEL => 0x06,
+	
+	REL_WHEEL => 0x08,
+
 	ABS_X => 0x00,
 	ABS_Y => 0x01,
 
@@ -209,6 +213,9 @@ print "UI_SET_RELBIT REL_X: $ret\n";
 $ret = ioctl($ui, UI_SET_RELBIT, REL_Y) || -1;
 print "UI_SET_RELBIT REL_Y: $ret\n";
 
+$ret = ioctl($ui, UI_SET_RELBIT, REL_WHEEL) || -1;
+$ret = ioctl($ui, UI_SET_RELBIT, REL_HWHEEL) || -1;
+
 $ret = ioctl($ui, UI_SET_EVBIT, EV_SYN) || -1;
 print "UI_SET_EVBIT EV_SYN: $ret\n";
 
@@ -291,14 +298,27 @@ while (1) {
 						}
 					}
 
+					# Scroll vertical
+					case 10 {
+						$value = unpack("l", pack("L", $value));
+						$value = $value * -1;
+						$value = unpack("L", pack("l", $value));
+						send_ev(EV_REL, REL_WHEEL, $value);
+					}
+
+					# Keypress
 					case 13 {
 						send_key($value);
 					}
 
+					# Scroll horizontal
+					case 14 {
+						send_ev(EV_REL, REL_HWHEEL, $value);
+					}
+
 					else {
-						print "Undefined case\n";
-						#my($pre, $ord, $post) = unpack("H12H4H*", $message);
-						#printf "Pre: $pre Ord: $ord Char: %s Post: $post\n", pack("H*", $ord);
+						print "Undefined case:\n";
+						print "Type: $type; value: $value\n";
 					}
 				}
 
