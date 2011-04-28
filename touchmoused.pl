@@ -148,7 +148,6 @@ sub send_mod {
 
 sub send_mouse_button {
 	my $btn = shift;
-	print "Mouse: $btn\n";
 
 	if ($mousemap{$btn}) {
 		send_ev(EV_KEY, $mousemap{$btn}, shift);
@@ -260,13 +259,11 @@ while (1) {
 				switch ($type) {
 					# Modifier key up
 					case 1 {
-						print "Modifier up\n";
 						send_mod($value, 0);
 					}
 
 					# Modifier key down
 					case 2 {
-						print "Modifier down\n";
 						send_mod($value, 1);
 					}
 
@@ -295,7 +292,6 @@ while (1) {
 					}
 
 					case 13 {
-						print "Keypress\n";
 						send_key($value);
 					}
 
