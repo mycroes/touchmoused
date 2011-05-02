@@ -242,6 +242,8 @@ my $sel = new IO::Select($listen);
 
 print "listening...\n";
 
+my $udp;
+
 while (1) {
 	my @waiting = $sel->can_read;
 	foreach $fh (@waiting) {
@@ -253,77 +255,83 @@ while (1) {
 			$new->blocking(0);
 			$conns{$new} = {fh => $fh};
 
-			print "Creating UDP socket\n";
-			my $sock = IO::Socket::INET->new(LocalPort => 4026, Proto => 'udp') or die ("Couldn't create UDP socket: $!");
-			my $message;
-			
-			while ($sock->recv($message, 1024)) {
-				#printf "UDP Received: %s\n", unpack("H*", $message);
+
+			$udp = fork();
+			if (0 == $udp) {
+				my $sock = IO::Socket::INET->new(LocalPort => 4026, Proto => 'udp') or die ("Couldn't create UDP socket: $!");
+
+				print "Creating UDP socket\n";
+				my $message;
 				
-				my($type, $value, $other) = unpack("NNN", $message);
-				#printf "$type $value $other\n";
-				
-				switch ($type) {
-					# Modifier key up
-					case 1 {
-						send_mod($value, 0);
-					}
+				while ($sock->recv($message, 1024)) {
+					#printf "UDP Received: %s\n", unpack("H*", $message);
+					
+					my($type, $value, $other) = unpack("NNN", $message);
+					#printf "$type $value $other\n";
+					
+					switch ($type) {
+						# Modifier key up
+						case 1 {
+							send_mod($value, 0);
+						}
 
-					# Modifier key down
-					case 2 {
-						send_mod($value, 1);
-					}
+						# Modifier key down
+						case 2 {
+							send_mod($value, 1);
+						}
 
-					# Touch up
-					case 4 {
-						send_mouse_button($value, 0);
-					}
+						# Touch up
+						case 4 {
+							send_mouse_button($value, 0);
+						}
 
-					# Touch down
-					case 5 {
-						send_mouse_button($value, 1);
-					}
+						# Touch down
+						case 5 {
+							send_mouse_button($value, 1);
+						}
 
-					# Mouse horizontal
-					case 6 {
-						if (0 != $value) {
-							print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_X, $value);
+						# Mouse horizontal
+						case 6 {
+							if (0 != $value) {
+								print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_X, $value);
+							}
+						}
+
+						# Mouse vertical
+						case 7 {
+							if (0 != $value) {
+								print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_Y, $value);
+							}
+						}
+
+						# Scroll vertical
+						case 10 {
+							$value = unpack("l", pack("L", $value));
+							$value = $value * -1;
+							$value = unpack("L", pack("l", $value));
+							send_ev(EV_REL, REL_WHEEL, $value);
+						}
+
+						# Keypress
+						case 13 {
+							send_key($value);
+						}
+
+						# Scroll horizontal
+						case 14 {
+							send_ev(EV_REL, REL_HWHEEL, $value);
+						}
+
+						else {
+							print "Undefined case:\n";
+							print "Type: $type; value: $value\n";
 						}
 					}
 
-					# Mouse vertical
-					case 7 {
-						if (0 != $value) {
-							print $ui pack($strpk_input_event, 0, 0, EV_REL, REL_Y, $value);
-						}
-					}
-
-					# Scroll vertical
-					case 10 {
-						$value = unpack("l", pack("L", $value));
-						$value = $value * -1;
-						$value = unpack("L", pack("l", $value));
-						send_ev(EV_REL, REL_WHEEL, $value);
-					}
-
-					# Keypress
-					case 13 {
-						send_key($value);
-					}
-
-					# Scroll horizontal
-					case 14 {
-						send_ev(EV_REL, REL_HWHEEL, $value);
-					}
-
-					else {
-						print "Undefined case:\n";
-						print "Type: $type; value: $value\n";
-					}
+					# Send sync event
+					print $ui pack($strpk_input_event, 0, 0, EV_SYN, 0, 0);
 				}
-
-				# Send sync event
-				print $ui pack($strpk_input_event, 0, 0, EV_SYN, 0, 0);
+				print "UDP receive ended\n";
 			}
 		} else {
 			if (eof($fh)) {
