@@ -346,13 +346,11 @@ while (1) {
 			}
 		} else {
 			if (eof($fh)) {
-				print "closed: $fh\n";
 				$sel->remove($fh);
-				print "Kill $udp\n";
-				my $k = kill 1, $udp;
-				print "Res: $k\n";
 				close $fh;
 				delete $conns{$fh};
+				
+				kill 1, $udp; # Kill related UDP connection
 				next;
 			}
 			if (exists $conns{$fh}) {
