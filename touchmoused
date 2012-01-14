@@ -198,37 +198,29 @@ $ui->autoflush(1);
 
 my $ret;
 $ret = ioctl($ui, UI_SET_EVBIT, EV_KEY) || -1;
-print "UI_SET_EVBIT EV_KEY: $ret\n";
 
 for my $key ( values %keymap ) {
 	$ret = ioctl($ui, UI_SET_KEYBIT, $key) || -1;
-	print "UI_SET_KEYBIT $key: $ret\n";
 }
 
 for my $key ( values %modmap ) {
 	$ret = ioctl($ui, UI_SET_KEYBIT, $key) || -1;
-	print "UI_SET_KEYBIT $key: $ret\n";
 }
 
 for my $btn ( values %mousemap ) {
 	$ret = ioctl($ui, UI_SET_KEYBIT, $btn) || -1;
-	print "UI_SET_KEYBIT $btn: $ret\n";
 }
 
 $ret = ioctl($ui, UI_SET_EVBIT, EV_REL) || -1;
-print "UI_SET_EVBIT EV_REL: $ret\n";
 
 $ret = ioctl($ui, UI_SET_RELBIT, REL_X) || -1;
-print "UI_SET_RELBIT REL_X: $ret\n";
 
 $ret = ioctl($ui, UI_SET_RELBIT, REL_Y) || -1;
-print "UI_SET_RELBIT REL_Y: $ret\n";
 
 $ret = ioctl($ui, UI_SET_RELBIT, REL_WHEEL) || -1;
 $ret = ioctl($ui, UI_SET_RELBIT, REL_HWHEEL) || -1;
 
 $ret = ioctl($ui, UI_SET_EVBIT, EV_SYN) || -1;
-print "UI_SET_EVBIT EV_SYN: $ret\n";
 
 my @abs;
 foreach (1..256) {
@@ -239,7 +231,6 @@ foreach (1..256) {
 print $ui pack($strpk_uinput_dev, "TouchMouse", BUS_VIRTUAL, 0x1234, 0xfedc, 3, 0, @abs);
 
 $ret = ioctl($ui, UI_DEV_CREATE, 0) || -1;
-print "UI_DEV_CREATE: $ret \n";
 if (-1 == $ret) {
 	die("device creation failed");
 }
@@ -342,7 +333,6 @@ while (1) {
 					# Send sync event
 					print $ui pack($strpk_input_event, 0, 0, EV_SYN, 0, 0);
 				}
-				print "UDP receive ended\n";
 			}
 		} else {
 			if (eof($fh)) {
