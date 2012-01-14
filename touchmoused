@@ -177,7 +177,7 @@ sub send_mouse_button {
 chomp $name;
 
 my $avahi_publish = fork();
-if ($avahi_publish==0) {
+if (0 == $avahi_publish) {
 	exec 'avahi-publish-service',
 		$name,
 		"_iTouch._tcp",
@@ -195,11 +195,6 @@ $SIG{CHLD} = \&REAP;
 
 sysopen($ui, '/dev/uinput', O_NONBLOCK|O_WRONLY) || die "Can't open /dev/uinput: $!"; 
 $ui->autoflush(1);
-
-# timeval
-# __kernel_time_t tv_sec (int)
-# __kernel_suseconds_t tv_usec (int)
-
 
 my $ret;
 $ret = ioctl($ui, UI_SET_EVBIT, EV_KEY) || -1;
