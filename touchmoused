@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+use Getopt::Long;
 use IO::Select;
 use IO::Socket;
 use IO::Handle; # Needed for autoflush
@@ -23,6 +24,52 @@ use Fcntl; # Needed for sysopen flags (?)
 use Switch;
 use POSIX ":sys_wait_h";
 require "sys/ioctl.ph";
+
+my $service;
+my $port = 4026;
+my $device;
+my $name;
+my $vendor;
+my $product;
+my $help;
+
+$opts = GetOptions ('device:s'  => \$device,    # Path to uinput device
+                    'name:s'    => \$name,      # uinput virtual device name
+                    'vendor:s'  => \$vendor,    # uinput virtual device vendor
+                    'product:s' => \$product,   # uinput virtual device product
+                    'port:4026' => \$port,      # service port
+                    'service:s' => \$service,   # service name
+                    'help'      => \$help);     # show help
+
+# Load defaults or arguments
+if (1 == $help) {
+	die('Help not yet implemented');
+}
+
+if ('' == $device) {
+	$device = '/dev/uinput';
+}
+
+if ('' == $name) {
+	$name = 'TouchMouse';
+}
+
+if ('' == $vendor) {
+	$vendor = 0x1234;
+} else {
+	$vendor = unpack('H4', $vendor);
+}
+
+if ('' == $product) {
+	$product = 0xfedc;
+} else {
+	$product = unpack('H4', $vendor);
+}
+
+if ('' == $service) {
+	$service = `hostname`;
+	chomp $service;
+}
 
 use constant {
 	UI_DEV_CREATE => 0x5501,
@@ -129,7 +176,6 @@ my %mousemap = ( # Map for mouse buttons
 	258 => 0x112, # BTN_MIDDLE
 );
 
-my $name = `hostname`;
 my %conns;
 my $ui; # /dev/uinput handle
 
@@ -174,14 +220,13 @@ sub send_mouse_button {
 	}
 }
 
-chomp $name;
 
 my $avahi_publish = fork();
 if (0 == $avahi_publish) {
 	exec 'avahi-publish-service',
-		$name,
+		$service,
 		"_iTouch._tcp",
-		"4026";
+		$port;
 }
 
 sub REAP {
@@ -193,7 +238,7 @@ sub REAP {
 };
 $SIG{CHLD} = \&REAP;
 
-sysopen($ui, '/dev/uinput', O_NONBLOCK|O_WRONLY) || die "Can't open /dev/uinput: $!"; 
+sysopen($ui, $device, O_NONBLOCK|O_WRONLY) || die "Can't open $device: $!"; 
 $ui->autoflush(1);
 
 my $ret;
@@ -228,7 +273,7 @@ foreach (1..256) {
 	push(@abs, 0x00);
 }
 
-print $ui pack($strpk_uinput_dev, "TouchMouse", BUS_VIRTUAL, 0x1234, 0xfedc, 3, 0, @abs);
+print $ui pack($strpk_uinput_dev, $name, BUS_VIRTUAL, $vendor, $product, 3, 0, @abs);
 
 $ret = ioctl($ui, UI_DEV_CREATE, 0) || -1;
 if (-1 == $ret) {
@@ -236,9 +281,9 @@ if (-1 == $ret) {
 }
 
 my $listen = new IO::Socket::INET(Listen => 1,
-	LocalPort => 4026,
+	LocalPort => $port,
 	ReuseAddr => 1,
-	Proto => 'tcp') or die "Can't listen on port 4026: $!";
+	Proto => 'tcp') or die "Can't listen on port $port: $!";
 
 my $sel = new IO::Select($listen);
 
@@ -260,7 +305,7 @@ while (1) {
 
 			$udp = fork();
 			if (0 == $udp) {
-				my $sock = IO::Socket::INET->new(LocalPort => 4026, Proto => 'udp') or die ("Couldn't create UDP socket: $!");
+				my $sock = IO::Socket::INET->new(LocalPort => $port, Proto => 'udp') or die ("Couldn't create UDP socket: $!");
 
 				print "Creating UDP socket\n";
 				my $message;
