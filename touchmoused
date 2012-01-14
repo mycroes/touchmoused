@@ -134,7 +134,7 @@ my %conns;
 my $ui; # /dev/uinput handle
 
 my $strpk_uinput_dev = "a80SSSSiI256";
-my $strpk_input_event = "LLSSI";
+my $strpk_input_event = "L!L!SSL";
 
 sub send_ev {
 	print $ui pack($strpk_input_event, 0, 0, shift, shift, shift);
@@ -241,7 +241,7 @@ foreach (1..256) {
 	push(@abs, 0x00);
 }
 
-print $ui pack($strpk_uinput_dev, "TouchMouse", BUS_VIRTUAL, 0x1234, 0xfedc, 1, 0, @abs);
+print $ui pack($strpk_uinput_dev, "TouchMouse", BUS_VIRTUAL, 0x1234, 0xfedc, 3, 0, @abs);
 
 $ret = ioctl($ui, UI_DEV_CREATE, 0) || -1;
 print "UI_DEV_CREATE: $ret \n";
