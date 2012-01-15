@@ -47,10 +47,6 @@ pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 
 # Load defaults or arguments
-if ($help eq 1) {
-	die('Help not yet implemented');
-}
-
 if ($device eq '') {
 	$device = '/dev/uinput';
 }
