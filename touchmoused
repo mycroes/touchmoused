@@ -25,13 +25,13 @@ use Switch;
 use POSIX ":sys_wait_h";
 require "sys/ioctl.ph";
 
-my $service;
+my $service = '';
 my $port = 4026;
-my $device;
-my $name;
-my $vendor;
-my $product;
-my $help;
+my $device = '';
+my $name = '';
+my $vendor = '';
+my $product = '';
+my $help = '';
 
 $opts = GetOptions ('device:s'  => \$device,    # Path to uinput device
                     'name:s'    => \$name,      # uinput virtual device name
@@ -42,31 +42,31 @@ $opts = GetOptions ('device:s'  => \$device,    # Path to uinput device
                     'help'      => \$help);     # show help
 
 # Load defaults or arguments
-if (1 == $help) {
+if ($help eq 1) {
 	die('Help not yet implemented');
 }
 
-if ('' == $device) {
+if ($device eq '') {
 	$device = '/dev/uinput';
 }
 
-if ('' == $name) {
+if ($name eq '') {
 	$name = 'TouchMouse';
 }
 
-if ('' == $vendor) {
+if ($vendor eq '') {
 	$vendor = 0x1234;
 } else {
 	$vendor = unpack('H4', $vendor);
 }
 
-if ('' == $product) {
+if ($product eq '') {
 	$product = 0xfedc;
 } else {
 	$product = unpack('H4', $vendor);
 }
 
-if ('' == $service) {
+if ($service eq '') {
 	$service = `hostname`;
 	chomp $service;
 }
