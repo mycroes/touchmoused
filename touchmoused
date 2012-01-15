@@ -17,6 +17,7 @@
 
 
 use Getopt::Long;
+use Pod::Usage;
 use IO::Select;
 use IO::Socket;
 use IO::Handle; # Needed for autoflush
@@ -31,7 +32,8 @@ my $device = '';
 my $name = '';
 my $vendor = '';
 my $product = '';
-my $help = '';
+my $help = 0;
+my $man = 0;
 
 $opts = GetOptions ('device:s'  => \$device,    # Path to uinput device
                     'name:s'    => \$name,      # uinput virtual device name
@@ -39,7 +41,10 @@ $opts = GetOptions ('device:s'  => \$device,    # Path to uinput device
                     'product:s' => \$product,   # uinput virtual device product
                     'port:4026' => \$port,      # service port
                     'service:s' => \$service,   # service name
-                    'help'      => \$help);     # show help
+                    'help'      => \$help)      # show help
+or pod2usage(2);
+pod2usage(1) if $help;
+pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 
 # Load defaults or arguments
 if ($help eq 1) {
@@ -436,3 +441,45 @@ sub conn_handle_data {
 	read $fh, my $data, 16;
 	printf "TCP Received: %s\n", unpack("H*", $data);
 }
+
+__END__
+
+=head1 NAME
+
+touchmoused - Linux server for Logitech Touch Mouse
+
+=head1 SYNOPSIS
+
+touchmoused [options]
+
+ Options:
+   --help               Show help message
+   --device=FILE        Path to uinput device (usually /dev/uinput)
+   --name=STRING        Name registered in uinput
+   --vendor=HEX         Hexadecimal notation of vendor reported to uinput
+   --product=HEX        Hexadecimal notation of product reported to uinput
+   --port=NUMBER        Port to listen on
+   --service=STRING     Service name advertised by avahi
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--help>
+
+Shows a short help message and exits
+
+=item B<--device>
+
+Path to uinput device on your system. Usually is either /dev/uinput or
+/dev/input/uinput.
+
+=back
+
+=head1 DESCRIPTION
+
+B<This program> will act as a server for Logitech's Touch Mouse app for IOS or
+other clients using the same network protocol. The Logitech Touch Mouse app will
+allow you to control your mouse and keyboard using your IOS device.
+
+=cut
